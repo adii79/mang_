@@ -9,6 +9,7 @@ from PIL import Image
 import io
 import base64
 from datetime import datetime
+import requests
 
 app = Flask(__name__)
 
@@ -18,6 +19,11 @@ RESULTS_FOLDER = 'results'
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg'}
 MAX_FILE_SIZE = 16 * 1024 * 1024  # 16MB
 
+# Firebase Configuration
+FIREBASE_HOST = "https://bluenova-7926f-default-rtdb.asia-southeast1.firebasedatabase.app/"
+FIREBASE_AUTH = "hswIlGS4HikO4JnOF3spt8J3pe9rUwmHtDg53EBN"
+FIREBASE_PATH = "/captured_images.json"
+
 # Create folders
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 os.makedirs(RESULTS_FOLDER, exist_ok=True)
@@ -26,14 +32,32 @@ app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.config['RESULTS_FOLDER'] = RESULTS_FOLDER
 app.config['MAX_CONTENT_LENGTH'] = MAX_FILE_SIZE
 
-# Load YOLO model (UPDATE THIS PATH to your model)
-MODEL_PATH = 'best.pt'  # Put your best.pt file in the same directory
+# Load YOLO model
+MODEL_PATH = 'best.pt'
 try:
     model = YOLO(MODEL_PATH)
     print(f"✅ Model loaded successfully from {MODEL_PATH}")
 except Exception as e:
     print(f"❌ Error loading model: {e}")
     model = None
+
+def fetch_latest_image_from_firebase():
+    """Fetch the latest image from Firebase."""
+    try:
+        firebase_url = f"{FIREBASE_HOST}{FIREBASE_PATH}?auth={FIREBASE_AUTH}"
+        response = requests.get(firebase_url)
+        
+        if response.status_code == 200 and response.json():
+            images = response.json()
+            latest_entry = max(images.values(), key=lambda x: x["timestamp"])
+            return latest_entry["image"]
+        else:
+            print(f"Firebase response error: {response.status_code}")
+            return None
+            
+    except Exception as e:
+        print(f"Error fetching image from Firebase: {e}")
+        return None
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
@@ -56,29 +80,71 @@ def calculate_carbon(total_area_m2):
 def index():
     return render_template('index.html')
 
+@app.route('/fetch_firebase_image', methods=['GET'])
+def fetch_firebase_image():
+    """Fetch the latest image from Firebase and return as base64"""
+    try:
+        image_data = fetch_latest_image_from_firebase()
+        if image_data:
+            return jsonify({
+                'success': True,
+                'image': image_data
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'error': 'No image found in Firebase'
+            }), 404
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
 @app.route('/predict', methods=['POST'])
 def predict():
     if model is None:
         return jsonify({'error': 'Model not loaded. Please check model path.'}), 500
     
-    if 'file' not in request.files:
-        return jsonify({'error': 'No file uploaded'}), 400
-    
-    file = request.files['file']
-    
-    if file.filename == '':
-        return jsonify({'error': 'No file selected'}), 400
-    
-    if not allowed_file(file.filename):
-        return jsonify({'error': 'Invalid file type. Use PNG, JPG, or JPEG'}), 400
-    
     try:
-        # Save uploaded file
-        filename = secure_filename(file.filename)
-        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-        unique_filename = f"{timestamp}_{filename}"
-        filepath = os.path.join(app.config['UPLOAD_FOLDER'], unique_filename)
-        file.save(filepath)
+        # Check if image is from Firebase or uploaded
+        use_firebase = request.form.get('use_firebase', 'false') == 'true'
+        
+        if use_firebase:
+            # Fetch image from Firebase
+            image_data = fetch_latest_image_from_firebase()
+            if not image_data:
+                return jsonify({'error': 'Could not fetch image from Firebase'}), 400
+            
+            # Decode base64 image
+            image_bytes = base64.b64decode(image_data)
+            image = Image.open(io.BytesIO(image_bytes))
+            
+            # Save to temporary file
+            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+            filename = f"firebase_{timestamp}.jpg"
+            filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+            image.save(filepath)
+            
+        else:
+            # Original upload logic
+            if 'file' not in request.files:
+                return jsonify({'error': 'No file uploaded'}), 400
+            
+            file = request.files['file']
+            
+            if file.filename == '':
+                return jsonify({'error': 'No file selected'}), 400
+            
+            if not allowed_file(file.filename):
+                return jsonify({'error': 'Invalid file type. Use PNG, JPG, or JPEG'}), 400
+            
+            # Save uploaded file
+            filename = secure_filename(file.filename)
+            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+            filename = f"{timestamp}_{filename}"
+            filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+            file.save(filepath)
         
         # Get confidence threshold from form
         confidence = float(request.form.get('confidence', 0.3))
@@ -147,7 +213,7 @@ def predict():
                 annotated_image = label_annotator.annotate(annotated_image, detections, labels)
                 
                 # Save annotated image
-                result_filename = f"result_{unique_filename}"
+                result_filename = f"result_{filename}"
                 result_path = os.path.join(app.config['RESULTS_FOLDER'], result_filename)
                 cv2.imwrite(result_path, cv2.cvtColor(annotated_image, cv2.COLOR_RGB2BGR))
                 

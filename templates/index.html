@@ -49,6 +49,34 @@
             padding: 30px;
         }
 
+        .source-selector {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            justify-content: center;
+        }
+
+        .source-btn {
+            padding: 12px 30px;
+            border: 2px solid #2d5016;
+            background: white;
+            color: #2d5016;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 1em;
+            transition: all 0.3s;
+        }
+
+        .source-btn.active {
+            background: #2d5016;
+            color: white;
+        }
+
+        .source-btn:hover {
+            background: #1f3810;
+            color: white;
+        }
+
         .upload-section {
             background: #fafafa;
             border: 2px dashed #ccc;
@@ -317,8 +345,18 @@
         </div>
 
         <div class="content">
+            <!-- Source Selector -->
+            <div class="source-selector">
+                <button class="source-btn active" id="firebaseBtn" onclick="selectSource('firebase')">
+                    📡 Use Firebase Image
+                </button>
+                <button class="source-btn" id="uploadBtn" onclick="selectSource('upload')">
+                    📤 Upload Image
+                </button>
+            </div>
+
             <!-- Upload Section -->
-            <div class="upload-section" id="uploadSection">
+            <div class="upload-section" id="uploadSection" style="display: none;">
                 <div class="upload-icon">📸</div>
                 <h2>Upload Mangrove Image</h2>
                 <p>Drag & drop or click to select an image</p>
@@ -326,6 +364,18 @@
                 <button class="btn" onclick="document.getElementById('fileInput').click()">
                     Choose Image
                 </button>
+            </div>
+
+            <!-- Firebase Section -->
+            <div id="firebaseSection">
+                <div class="upload-section">
+                    <div class="upload-icon">🔥</div>
+                    <h2>Fetch from Firebase</h2>
+                    <p>Get the latest image from Firebase database</p>
+                    <button class="btn" onclick="fetchFromFirebase()">
+                        🔍 Fetch Latest Image
+                    </button>
+                </div>
             </div>
 
             <!-- Settings -->
@@ -433,6 +483,7 @@
 
     <script>
         const uploadSection = document.getElementById('uploadSection');
+        const firebaseSection = document.getElementById('firebaseSection');
         const fileInput = document.getElementById('fileInput');
         const previewSection = document.getElementById('previewSection');
         const previewImage = document.getElementById('previewImage');
@@ -440,6 +491,47 @@
         const results = document.getElementById('results');
         let selectedFile = null;
         let resultFilename = null;
+        let useFirebase = true;
+
+        function selectSource(source) {
+            if (source === 'firebase') {
+                useFirebase = true;
+                firebaseSection.style.display = 'block';
+                uploadSection.style.display = 'none';
+                document.getElementById('firebaseBtn').classList.add('active');
+                document.getElementById('uploadBtn').classList.remove('active');
+            } else {
+                useFirebase = false;
+                firebaseSection.style.display = 'none';
+                uploadSection.style.display = 'block';
+                document.getElementById('firebaseBtn').classList.remove('active');
+                document.getElementById('uploadBtn').classList.add('active');
+            }
+            previewSection.style.display = 'none';
+            results.style.display = 'none';
+        }
+
+        async function fetchFromFirebase() {
+            loading.style.display = 'block';
+            results.style.display = 'none';
+            
+            try {
+                const response = await fetch('/fetch_firebase_image');
+                const data = await response.json();
+                
+                if (data.success && data.image) {
+                    previewImage.src = 'data:image/jpeg;base64,' + data.image;
+                    previewSection.style.display = 'block';
+                    selectedFile = null; // Clear any uploaded file
+                } else {
+                    alert('Error: ' + (data.error || 'Could not fetch image from Firebase'));
+                }
+            } catch (error) {
+                alert('Error fetching from Firebase: ' + error.message);
+            } finally {
+                loading.style.display = 'none';
+            }
+        }
 
         // Drag and drop
         uploadSection.addEventListener('dragover', (e) => {
@@ -483,13 +575,19 @@
         }
 
         async function runDetection() {
-            if (!selectedFile) {
-                alert('Please select an image first');
-                return;
-            }
-
             const formData = new FormData();
-            formData.append('file', selectedFile);
+            
+            if (useFirebase) {
+                formData.append('use_firebase', 'true');
+            } else {
+                if (!selectedFile) {
+                    alert('Please select an image first');
+                    return;
+                }
+                formData.append('file', selectedFile);
+                formData.append('use_firebase', 'false');
+            }
+            
             formData.append('confidence', document.getElementById('confidence').value);
             formData.append('pixel_to_meter', document.getElementById('pixelToMeter').value);
 
