@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mangrove Detection</title>
+    <title>Real-Time Mangrove Detection</title>
     <style>
         * {
             margin: 0;
@@ -13,284 +13,197 @@
 
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
-            background: #f5f5f5;
+            background: linear-gradient(135deg, #1e3c1e 0%, #2d5016 100%);
+            min-height: 100vh;
             padding: 20px;
-            line-height: 1.6;
         }
 
         .container {
-            max-width: 1200px;
+            max-width: 1400px;
             margin: 0 auto;
-            background: white;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }
 
         .header {
-            background: #2d5016;
-            color: white;
+            background: rgba(255, 255, 255, 0.95);
             padding: 30px;
-            border-radius: 8px 8px 0 0;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+            margin-bottom: 20px;
         }
 
         .header h1 {
-            font-size: 2em;
-            margin-bottom: 5px;
-            font-weight: 600;
+            font-size: 2.5em;
+            color: #2d5016;
+            margin-bottom: 10px;
+            font-weight: 700;
         }
 
         .header p {
-            font-size: 1em;
-            opacity: 0.9;
+            font-size: 1.1em;
+            color: #555;
             font-weight: 400;
         }
 
-        .content {
-            padding: 30px;
-        }
-
-        .source-selector {
-            display: flex;
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
             gap: 10px;
-            margin-bottom: 20px;
-            justify-content: center;
+            background: #4CAF50;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 25px;
+            font-weight: 600;
+            margin-top: 15px;
+            box-shadow: 0 2px 10px rgba(76, 175, 80, 0.3);
         }
 
-        .source-btn {
-            padding: 12px 30px;
-            border: 2px solid #2d5016;
+        .pulse {
+            width: 12px;
+            height: 12px;
             background: white;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.5; transform: scale(1.3); }
+        }
+
+        .main-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-top: 20px;
+        }
+
+        .panel {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 12px;
+            padding: 25px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+        }
+
+        .panel h2 {
+            font-size: 1.8em;
             color: #2d5016;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 1em;
-            transition: all 0.3s;
-        }
-
-        .source-btn.active {
-            background: #2d5016;
-            color: white;
-        }
-
-        .source-btn:hover {
-            background: #1f3810;
-            color: white;
-        }
-
-        .upload-section {
-            background: #fafafa;
-            border: 2px dashed #ccc;
-            border-radius: 8px;
-            padding: 40px;
-            text-align: center;
-            cursor: pointer;
-            transition: all 0.3s;
-        }
-
-        .upload-section:hover {
-            border-color: #2d5016;
-            background: #f0f4f0;
-        }
-
-        .upload-section.dragover {
-            border-color: #2d5016;
-            background: #e6f2e6;
-        }
-
-        .upload-icon {
-            font-size: 3em;
-            margin-bottom: 15px;
-        }
-
-        .upload-section h2 {
-            font-size: 1.3em;
-            margin-bottom: 10px;
-            color: #333;
-            font-weight: 600;
-        }
-
-        .upload-section p {
-            color: #666;
-            margin-bottom: 15px;
-        }
-
-        .file-input {
-            display: none;
-        }
-
-        .btn {
-            background: #2d5016;
-            color: white;
-            padding: 12px 30px;
-            border: none;
-            border-radius: 6px;
-            font-size: 1em;
-            cursor: pointer;
-            transition: background 0.3s;
-            margin: 5px;
-        }
-
-        .btn:hover {
-            background: #1f3810;
-        }
-
-        .btn:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-        }
-
-        .settings {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 20px;
-            margin: 30px 0;
-        }
-
-        .setting-item {
-            background: #fafafa;
-            padding: 20px;
-            border-radius: 8px;
-            border: 1px solid #e0e0e0;
-        }
-
-        .setting-item label {
-            display: block;
-            margin-bottom: 8px;
-            font-weight: 600;
-            color: #333;
-            font-size: 0.95em;
-        }
-
-        .setting-item input {
-            width: 100%;
-            padding: 10px;
-            border: 1px solid #ddd;
-            border-radius: 6px;
-            font-size: 1em;
-        }
-
-        .setting-item input:focus {
-            outline: none;
-            border-color: #2d5016;
-        }
-
-        .setting-item small {
-            color: #666;
-            display: block;
-            margin-top: 5px;
-            font-size: 0.85em;
-        }
-
-        .preview-section {
-            margin-top: 30px;
-        }
-
-        .preview-section h2 {
-            font-size: 1.3em;
-            margin-bottom: 15px;
-            color: #333;
-            font-weight: 600;
-        }
-
-        .preview-image {
-            max-width: 100%;
-            border-radius: 8px;
-            border: 1px solid #e0e0e0;
-        }
-
-        .results {
-            margin-top: 30px;
-        }
-
-        .results h2 {
-            font-size: 1.5em;
             margin-bottom: 20px;
-            color: #333;
             font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 10px;
         }
 
-        .results h3 {
-            font-size: 1.2em;
-            margin: 20px 0 10px;
-            color: #333;
-            font-weight: 600;
+        .image-container {
+            width: 100%;
+            aspect-ratio: 16/9;
+            background: #f0f0f0;
+            border-radius: 8px;
+            overflow: hidden;
+            position: relative;
+            border: 2px solid #e0e0e0;
         }
 
-        .results-grid {
+        .image-container img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+
+        .placeholder {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            color: #999;
+        }
+
+        .placeholder-icon {
+            font-size: 4em;
+            margin-bottom: 15px;
+        }
+
+        .stats-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 20px;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
             margin: 20px 0;
         }
 
-        .card {
-            background: #fafafa;
-            padding: 20px;
-            border-radius: 8px;
-            border: 1px solid #e0e0e0;
-        }
-
-        .card h3 {
-            color: #2d5016;
-            margin-bottom: 15px;
-            font-size: 1.1em;
-        }
-
-        .stat {
-            display: flex;
-            justify-content: space-between;
-            margin: 8px 0;
-            padding: 10px;
-            background: white;
-            border-radius: 6px;
-            border: 1px solid #e0e0e0;
-        }
-
-        .stat-label {
-            font-weight: 500;
-            color: #555;
-        }
-
-        .stat-value {
-            color: #2d5016;
-            font-weight: 600;
-        }
-
-        .detection-table {
-            width: 100%;
-            margin-top: 15px;
-            border-collapse: collapse;
-            background: white;
-            border-radius: 8px;
-            overflow: hidden;
-            border: 1px solid #e0e0e0;
-        }
-
-        .detection-table th {
-            background: #2d5016;
+        .stat-card {
+            background: linear-gradient(135deg, #4CAF50 0%, #2d5016 100%);
             color: white;
-            padding: 12px;
-            text-align: left;
-            font-weight: 600;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
         }
 
-        .detection-table td {
-            padding: 10px 12px;
-            border-bottom: 1px solid #f0f0f0;
+        .stat-card h3 {
+            font-size: 0.9em;
+            opacity: 0.9;
+            margin-bottom: 8px;
+            font-weight: 500;
         }
 
-        .detection-table tr:last-child td {
-            border-bottom: none;
+        .stat-card .value {
+            font-size: 2em;
+            font-weight: 700;
         }
 
-        .detection-table tr:hover {
-            background: #fafafa;
+        .stat-card .unit {
+            font-size: 0.9em;
+            opacity: 0.9;
+            margin-top: 5px;
         }
 
-        .loading {
-            display: none;
+        .full-width-stat {
+            grid-column: 1 / -1;
+            background: linear-gradient(135deg, #FF6B6B 0%, #C92A2A 100%);
+        }
+
+        .info-box {
+            background: #e3f2fd;
+            border-left: 4px solid #2196F3;
+            padding: 15px;
+            border-radius: 6px;
+            margin: 15px 0;
+        }
+
+        .info-box strong {
+            color: #1565C0;
+            display: block;
+            margin-bottom: 5px;
+        }
+
+        .info-box p {
+            color: #1976D2;
+            font-size: 0.9em;
+            margin: 3px 0;
+        }
+
+        .timestamp {
             text-align: center;
-            padding: 40px;
+            color: #666;
+            font-size: 0.9em;
+            margin-top: 15px;
+            padding: 10px;
+            background: #f5f5f5;
+            border-radius: 6px;
+        }
+
+        .loading-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(255, 255, 255, 0.9);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 10;
         }
 
         .spinner {
@@ -300,7 +213,7 @@
             width: 50px;
             height: 50px;
             animation: spin 1s linear infinite;
-            margin: 0 auto 20px;
+            margin-bottom: 15px;
         }
 
         @keyframes spin {
@@ -308,31 +221,54 @@
             100% { transform: rotate(360deg); }
         }
 
-        .loading h3 {
-            font-size: 1.2em;
-            margin-bottom: 5px;
-            color: #333;
+        .manual-upload {
+            margin-top: 20px;
+            padding: 20px;
+            background: #f9f9f9;
+            border-radius: 8px;
+            border: 2px dashed #ccc;
         }
 
-        .loading p {
-            color: #666;
+        .manual-upload h3 {
+            color: #2d5016;
+            margin-bottom: 15px;
+        }
+
+        .btn {
+            background: #2d5016;
+            color: white;
+            padding: 12px 25px;
+            border: none;
+            border-radius: 6px;
+            font-size: 1em;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-weight: 600;
+        }
+
+        .btn:hover {
+            background: #1f3810;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(45, 80, 22, 0.3);
+        }
+
+        .file-input {
+            display: none;
+        }
+
+        @media (max-width: 1024px) {
+            .main-grid {
+                grid-template-columns: 1fr;
+            }
         }
 
         @media (max-width: 768px) {
             .header h1 {
-                font-size: 1.5em;
+                font-size: 1.8em;
             }
-
-            .content {
-                padding: 20px;
-            }
-
-            .results-grid {
+            
+            .stats-grid {
                 grid-template-columns: 1fr;
-            }
-
-            .detection-table {
-                font-size: 0.9em;
             }
         }
     </style>
@@ -340,327 +276,199 @@
 <body>
     <div class="container">
         <div class="header">
-            <h1>🌳 Mangrove Detection System</h1>
-            <p>AI-Powered Mangrove Identification & Carbon Sequestration Calculator</p>
+            <h1>🌳 Real-Time Mangrove Detection System</h1>
+            <p>Automatic Firebase Image Processing with AI-Powered Analysis</p>
+            <div class="status-badge">
+                <div class="pulse"></div>
+                <span>🔥 Live Monitoring Active</span>
+            </div>
         </div>
 
-        <div class="content">
-            <!-- Source Selector -->
-            <div class="source-selector">
-                <button class="source-btn active" id="firebaseBtn" onclick="selectSource('firebase')">
-                    📡 Use Firebase Image
-                </button>
-                <button class="source-btn" id="uploadBtn" onclick="selectSource('upload')">
-                    📤 Upload Image
-                </button>
-            </div>
-
-            <!-- Upload Section -->
-            <div class="upload-section" id="uploadSection" style="display: none;">
-                <div class="upload-icon">📸</div>
-                <h2>Upload Mangrove Image</h2>
-                <p>Drag & drop or click to select an image</p>
-                <input type="file" id="fileInput" class="file-input" accept="image/*">
-                <button class="btn" onclick="document.getElementById('fileInput').click()">
-                    Choose Image
-                </button>
-            </div>
-
-            <!-- Firebase Section -->
-            <div id="firebaseSection">
-                <div class="upload-section">
-                    <div class="upload-icon">🔥</div>
-                    <h2>Fetch from Firebase</h2>
-                    <p>Get the latest image from Firebase database</p>
-                    <button class="btn" onclick="fetchFromFirebase()">
-                        🔍 Fetch Latest Image
-                    </button>
+        <div class="main-grid">
+            <!-- Latest Detection Display -->
+            <div class="panel">
+                <h2>📸 Latest Detection</h2>
+                <div class="image-container" id="detectionImageContainer">
+                    <div class="placeholder">
+                        <div class="placeholder-icon">🌿</div>
+                        <p>Waiting for Firebase image...</p>
+                    </div>
+                </div>
+                <div class="timestamp" id="detectionTimestamp">
+                    Last updated: Never
                 </div>
             </div>
 
-            <!-- Settings -->
-            <div class="settings">
-                <div class="setting-item">
-                    <label for="confidence">🎯 Confidence Threshold</label>
-                    <input type="number" id="confidence" value="0.3" min="0.1" max="1" step="0.05">
-                    <small>Lower = more detections, higher = more accurate</small>
-                </div>
-                <div class="setting-item">
-                    <label for="pixelToMeter">📏 Pixel to Meter Ratio</label>
-                    <input type="number" id="pixelToMeter" value="0.5" min="0.1" max="10" step="0.1">
-                    <small>Adjust based on your image scale</small>
-                </div>
-            </div>
-
-            <!-- Preview -->
-            <div class="preview-section" id="previewSection" style="display: none;">
-                <h2>Selected Image</h2>
-                <img id="previewImage" class="preview-image" alt="Preview">
-                <div style="text-align: center; margin-top: 20px;">
-                    <button class="btn" id="detectBtn" onclick="runDetection()">
-                        🔍 Detect Mangroves
-                    </button>
-                </div>
-            </div>
-
-            <!-- Loading -->
-            <div class="loading" id="loading">
-                <div class="spinner"></div>
-                <h3>Analyzing Image...</h3>
-                <p>Detecting mangroves and calculating carbon sequestration</p>
-            </div>
-
-            <!-- Results -->
-            <div class="results" id="results" style="display: none;">
-                <h2>Detection Results</h2>
-                
-                <!-- Annotated Image -->
-                <div style="margin: 20px 0;">
-                    <img id="resultImage" class="preview-image" alt="Detection Result">
-                    <div style="text-align: center; margin-top: 15px;">
-                        <button class="btn" id="downloadBtn" onclick="downloadResult()">
-                            💾 Download Result
-                        </button>
+            <!-- Detection Summary -->
+            <div class="panel">
+                <h2>📊 Detection Summary</h2>
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <h3>🌳 Total Mangroves</h3>
+                        <div class="value" id="totalMangroves">0</div>
+                    </div>
+                    <div class="stat-card">
+                        <h3>📏 Area (m²)</h3>
+                        <div class="value" id="areaM2">0</div>
+                    </div>
+                    <div class="stat-card">
+                        <h3>📐 Area (hectares)</h3>
+                        <div class="value" id="areaHa">0</div>
                     </div>
                 </div>
 
-                <!-- Summary Cards -->
-                <div class="results-grid">
-                    <div class="card">
-                        <h3>🌳 Detection Summary</h3>
-                        <div class="stat">
-                            <span class="stat-label">Total Mangroves:</span>
-                            <span class="stat-value" id="totalDetections">0</span>
-                        </div>
-                        <div class="stat">
-                            <span class="stat-label">Area (m²):</span>
-                            <span class="stat-value" id="areaM2">0</span>
-                        </div>
-                        <div class="stat">
-                            <span class="stat-label">Area (hectares):</span>
-                            <span class="stat-value" id="areaHa">0</span>
-                        </div>
+                <h2 style="margin-top: 30px;">🌍 Carbon Sequestration</h2>
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <h3>Carbon Stock</h3>
+                        <div class="value" id="carbonTons">0</div>
+                        <div class="unit">tons C</div>
                     </div>
-
-                    <div class="card">
-                        <h3>🌍 Carbon Sequestration</h3>
-                        <div class="stat">
-                            <span class="stat-label">Carbon Stock:</span>
-                            <span class="stat-value" id="carbonTons">0 tons C</span>
-                        </div>
-                        <div class="stat">
-                            <span class="stat-label">CO₂ Equivalent:</span>
-                            <span class="stat-value" id="co2Tons">0 tons CO₂</span>
-                        </div>
-                        <div class="stat">
-                            <span class="stat-label">Trees Equivalent:</span>
-                            <span class="stat-value" id="treesEquiv">0 trees</span>
-                        </div>
+                    <div class="stat-card">
+                        <h3>CO₂ Equivalent</h3>
+                        <div class="value" id="co2Tons">0</div>
+                        <div class="unit">tons CO₂</div>
+                    </div>
+                    <div class="stat-card full-width-stat">
+                        <h3>🌲 Trees Equivalent</h3>
+                        <div class="value" id="treesEquiv">0</div>
+                        <div class="unit">trees/year</div>
                     </div>
                 </div>
 
-                <!-- Detections Table -->
-                <div style="margin-top: 30px;">
-                    <h3>Detailed Detections</h3>
-                    <table class="detection-table" id="detectionsTable">
-                        <thead>
-                            <tr>
-                                <th>#</th>
-                                <th>Class</th>
-                                <th>Confidence</th>
-                                <th>Width</th>
-                                <th>Height</th>
-                                <th>Area (px)</th>
-                            </tr>
-                        </thead>
-                        <tbody id="detectionsBody">
-                        </tbody>
-                    </table>
+                <div class="info-box">
+                    <strong>ℹ️ Firebase Integration</strong>
+                    <p>✅ Auto-detection every 5 seconds</p>
+                    <p>💾 Results saved to /MVR/latest_detection</p>
+                    <p>📜 History stored in /MVR/history/</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Manual Upload Section -->
+        <div class="panel" style="margin-top: 20px;">
+            <h2>📤 Manual Upload (Separate from Auto-Detection)</h2>
+            <div class="manual-upload">
+                <h3>Upload Your Own Image</h3>
+                <input type="file" id="manualFile" class="file-input" accept="image/*">
+                <button class="btn" onclick="document.getElementById('manualFile').click()">
+                    Choose File
+                </button>
+                <div id="manualResult" style="margin-top: 20px; display: none;">
+                    <div class="image-container" id="manualImageContainer"></div>
+                    <div style="margin-top: 15px; text-align: center;">
+                        <p><strong>Manual Upload Results</strong></p>
+                        <p>Total Mangroves: <span id="manualTotal">0</span></p>
+                        <p>CO₂: <span id="manualCO2">0</span> tons</p>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 
     <script>
-        const uploadSection = document.getElementById('uploadSection');
-        const firebaseSection = document.getElementById('firebaseSection');
-        const fileInput = document.getElementById('fileInput');
-        const previewSection = document.getElementById('previewSection');
-        const previewImage = document.getElementById('previewImage');
-        const loading = document.getElementById('loading');
-        const results = document.getElementById('results');
-        let selectedFile = null;
-        let resultFilename = null;
-        let useFirebase = true;
+        let updateInterval;
+        let hasData = false;
 
-        function selectSource(source) {
-            if (source === 'firebase') {
-                useFirebase = true;
-                firebaseSection.style.display = 'block';
-                uploadSection.style.display = 'none';
-                document.getElementById('firebaseBtn').classList.add('active');
-                document.getElementById('uploadBtn').classList.remove('active');
-            } else {
-                useFirebase = false;
-                firebaseSection.style.display = 'none';
-                uploadSection.style.display = 'block';
-                document.getElementById('firebaseBtn').classList.remove('active');
-                document.getElementById('uploadBtn').classList.add('active');
-            }
-            previewSection.style.display = 'none';
-            results.style.display = 'none';
+        // Auto-refresh latest detection every 3 seconds
+        function startAutoRefresh() {
+            updateInterval = setInterval(fetchLatestDetection, 3000);
+            fetchLatestDetection(); // Initial fetch
         }
 
-        async function fetchFromFirebase() {
-            loading.style.display = 'block';
-            results.style.display = 'none';
-            
+        async function fetchLatestDetection() {
             try {
-                const response = await fetch('/fetch_firebase_image');
-                const data = await response.json();
-                
-                if (data.success && data.image) {
-                    previewImage.src = 'data:image/jpeg;base64,' + data.image;
-                    previewSection.style.display = 'block';
-                    selectedFile = null; // Clear any uploaded file
-                } else {
-                    alert('Error: ' + (data.error || 'Could not fetch image from Firebase'));
+                const response = await fetch('/get_firebase_latest');
+                const result = await response.json();
+
+                if (result.success && result.data) {
+                    displayDetection(result.data);
+                    hasData = true;
+                } else if (!hasData) {
+                    // Show waiting message if no data exists yet
+                    showWaitingMessage();
                 }
+                // If data exists, keep showing last detection
             } catch (error) {
-                alert('Error fetching from Firebase: ' + error.message);
-            } finally {
-                loading.style.display = 'none';
+                console.error('Error fetching detection:', error);
             }
         }
 
-        // Drag and drop
-        uploadSection.addEventListener('dragover', (e) => {
-            e.preventDefault();
-            uploadSection.classList.add('dragover');
-        });
-
-        uploadSection.addEventListener('dragleave', () => {
-            uploadSection.classList.remove('dragover');
-        });
-
-        uploadSection.addEventListener('drop', (e) => {
-            e.preventDefault();
-            uploadSection.classList.remove('dragover');
-            const files = e.dataTransfer.files;
-            if (files.length > 0) {
-                handleFile(files[0]);
-            }
-        });
-
-        fileInput.addEventListener('change', (e) => {
-            if (e.target.files.length > 0) {
-                handleFile(e.target.files[0]);
-            }
-        });
-
-        function handleFile(file) {
-            if (!file.type.startsWith('image/')) {
-                alert('Please select an image file');
-                return;
-            }
-
-            selectedFile = file;
-            const reader = new FileReader();
-            reader.onload = (e) => {
-                previewImage.src = e.target.result;
-                previewSection.style.display = 'block';
-                results.style.display = 'none';
-            };
-            reader.readAsDataURL(file);
+        function showWaitingMessage() {
+            const imageContainer = document.getElementById('detectionImageContainer');
+            imageContainer.innerHTML = `
+                <div class="placeholder">
+                    <div class="placeholder-icon">🌿</div>
+                    <p>Waiting for Firebase image...</p>
+                    <p style="font-size: 0.9em; margin-top: 10px; color: #999;">Checking every 5 seconds</p>
+                </div>
+            `;
+            document.getElementById('detectionTimestamp').textContent = 'Last updated: Waiting for first image...';
         }
 
-        async function runDetection() {
+        function displayDetection(data) {
+            // Update image
+            const imageContainer = document.getElementById('detectionImageContainer');
+            if (data.annotated_image) {
+                imageContainer.innerHTML = `<img src="data:image/jpeg;base64,${data.annotated_image}" alt="Detection Result">`;
+            }
+
+            // Update stats
+            if (data.detection_summary) {
+                document.getElementById('totalMangroves').textContent = data.detection_summary.total_mangroves || 0;
+                document.getElementById('areaM2').textContent = data.detection_summary.area_m2 || 0;
+                document.getElementById('areaHa').textContent = data.detection_summary.area_hectares || 0;
+            }
+
+            if (data.carbon_sequestration) {
+                document.getElementById('carbonTons').textContent = data.carbon_sequestration.carbon_stock_tons || 0;
+                document.getElementById('co2Tons').textContent = data.carbon_sequestration.co2_equivalent_tons || 0;
+                document.getElementById('treesEquiv').textContent = (data.carbon_sequestration.trees_equivalent_per_year || 0).toLocaleString();
+            }
+
+            // Update timestamp
+            if (data.timestamp) {
+                const date = new Date(data.timestamp);
+                document.getElementById('detectionTimestamp').textContent = 
+                    `Last updated: ${date.toLocaleString()}`;
+            }
+        }
+
+        // Manual upload handler
+        document.getElementById('manualFile').addEventListener('change', async (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
             const formData = new FormData();
-            
-            if (useFirebase) {
-                formData.append('use_firebase', 'true');
-            } else {
-                if (!selectedFile) {
-                    alert('Please select an image first');
-                    return;
-                }
-                formData.append('file', selectedFile);
-                formData.append('use_firebase', 'false');
-            }
-            
-            formData.append('confidence', document.getElementById('confidence').value);
-            formData.append('pixel_to_meter', document.getElementById('pixelToMeter').value);
-
-            loading.style.display = 'block';
-            results.style.display = 'none';
-            document.getElementById('detectBtn').disabled = true;
+            formData.append('file', file);
+            formData.append('confidence', 0.3);
+            formData.append('pixel_to_meter', 0.5);
 
             try {
-                const response = await fetch('/predict', {
+                const response = await fetch('/predict_manual', {
                     method: 'POST',
                     body: formData
                 });
 
-                const data = await response.json();
+                const result = await response.json();
 
-                if (data.error) {
-                    alert('Error: ' + data.error);
-                    return;
+                if (result.success) {
+                    const manualResult = document.getElementById('manualResult');
+                    const manualImageContainer = document.getElementById('manualImageContainer');
+                    
+                    manualImageContainer.innerHTML = `<img src="data:image/jpeg;base64,${result.annotated_image}" alt="Manual Result">`;
+                    document.getElementById('manualTotal').textContent = result.total_detections;
+                    document.getElementById('manualCO2').textContent = result.carbon_sequestration.co2_tons;
+                    
+                    manualResult.style.display = 'block';
                 }
-
-                displayResults(data);
             } catch (error) {
-                alert('Error: ' + error.message);
-            } finally {
-                loading.style.display = 'none';
-                document.getElementById('detectBtn').disabled = false;
+                alert('Error processing image: ' + error.message);
             }
-        }
+        });
 
-        function displayResults(data) {
-            results.style.display = 'block';
-
-            // Display annotated image
-            if (data.annotated_image) {
-                document.getElementById('resultImage').src = 'data:image/jpeg;base64,' + data.annotated_image;
-                resultFilename = data.result_filename;
-            }
-
-            // Update summary
-            document.getElementById('totalDetections').textContent = data.total_detections;
-            document.getElementById('areaM2').textContent = data.carbon_sequestration.area_m2;
-            document.getElementById('areaHa').textContent = data.carbon_sequestration.area_ha;
-            document.getElementById('carbonTons').textContent = data.carbon_sequestration.carbon_tons + ' tons C';
-            document.getElementById('co2Tons').textContent = data.carbon_sequestration.co2_tons + ' tons CO₂';
-            
-            // Calculate tree equivalent (1 tree = ~20kg CO2/year)
-            const treesEquiv = Math.round(data.carbon_sequestration.co2_tons * 1000 / 20);
-            document.getElementById('treesEquiv').textContent = treesEquiv + ' trees/year';
-
-            // Populate detections table
-            const tbody = document.getElementById('detectionsBody');
-            tbody.innerHTML = '';
-            data.detections.forEach(det => {
-                const row = tbody.insertRow();
-                row.innerHTML = `
-                    <td>${det.id}</td>
-                    <td><strong>${det.class}</strong></td>
-                    <td>${det.confidence}%</td>
-                    <td>${det.width}px</td>
-                    <td>${det.height}px</td>
-                    <td>${det.area_pixels}</td>
-                `;
-            });
-
-            // Scroll to results
-            results.scrollIntoView({ behavior: 'smooth' });
-        }
-
-        function downloadResult() {
-            if (resultFilename) {
-                window.location.href = '/download/' + resultFilename;
-            }
-        }
+        // Start auto-refresh on page load
+        window.addEventListener('load', startAutoRefresh);
     </script>
 </body>
 </html>
