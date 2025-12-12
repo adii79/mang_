@@ -192,35 +192,6 @@
             border-radius: 6px;
         }
 
-        .loading-overlay {
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: rgba(255, 255, 255, 0.9);
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            z-index: 10;
-        }
-
-        .spinner {
-            border: 4px solid #f0f0f0;
-            border-top: 4px solid #2d5016;
-            border-radius: 50%;
-            width: 50px;
-            height: 50px;
-            animation: spin 1s linear infinite;
-            margin-bottom: 15px;
-        }
-
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-
         .manual-upload {
             margin-top: 20px;
             padding: 20px;
@@ -256,6 +227,15 @@
             display: none;
         }
 
+        .error-message {
+            background: #ffebee;
+            border-left: 4px solid #f44336;
+            padding: 15px;
+            border-radius: 6px;
+            margin: 15px 0;
+            color: #c62828;
+        }
+
         @media (max-width: 1024px) {
             .main-grid {
                 grid-template-columns: 1fr;
@@ -277,10 +257,10 @@
     <div class="container">
         <div class="header">
             <h1>🌳 Real-Time Mangrove Detection System</h1>
-            <p>Automatic Firebase Image Processing with AI-Powered Analysis</p>
+            <p>Direct Firebase Integration - Auto-Processing Every 5 Seconds</p>
             <div class="status-badge">
                 <div class="pulse"></div>
-                <span>🔥 Live Monitoring Active</span>
+                <span id="statusText">🔥 Fetching from Firebase...</span>
             </div>
         </div>
 
@@ -291,11 +271,11 @@
                 <div class="image-container" id="detectionImageContainer">
                     <div class="placeholder">
                         <div class="placeholder-icon">🌿</div>
-                        <p>Waiting for Firebase image...</p>
+                        <p>Loading from Firebase...</p>
                     </div>
                 </div>
                 <div class="timestamp" id="detectionTimestamp">
-                    Last updated: Never
+                    Last updated: Fetching...
                 </div>
             </div>
 
@@ -305,15 +285,15 @@
                 <div class="stats-grid">
                     <div class="stat-card">
                         <h3>🌳 Total Mangroves</h3>
-                        <div class="value" id="totalMangroves">0</div>
+                        <div class="value" id="totalMangroves">-</div>
                     </div>
                     <div class="stat-card">
                         <h3>📏 Area (m²)</h3>
-                        <div class="value" id="areaM2">0</div>
+                        <div class="value" id="areaM2">-</div>
                     </div>
                     <div class="stat-card">
                         <h3>📐 Area (hectares)</h3>
-                        <div class="value" id="areaHa">0</div>
+                        <div class="value" id="areaHa">-</div>
                     </div>
                 </div>
 
@@ -321,26 +301,27 @@
                 <div class="stats-grid">
                     <div class="stat-card">
                         <h3>Carbon Stock</h3>
-                        <div class="value" id="carbonTons">0</div>
+                        <div class="value" id="carbonTons">-</div>
                         <div class="unit">tons C</div>
                     </div>
                     <div class="stat-card">
                         <h3>CO₂ Equivalent</h3>
-                        <div class="value" id="co2Tons">0</div>
+                        <div class="value" id="co2Tons">-</div>
                         <div class="unit">tons CO₂</div>
                     </div>
                     <div class="stat-card full-width-stat">
                         <h3>🌲 Trees Equivalent</h3>
-                        <div class="value" id="treesEquiv">0</div>
+                        <div class="value" id="treesEquiv">-</div>
                         <div class="unit">trees/year</div>
                     </div>
                 </div>
 
                 <div class="info-box">
-                    <strong>ℹ️ Firebase Integration</strong>
-                    <p>✅ Auto-detection every 5 seconds</p>
-                    <p>💾 Results saved to /MVR/latest_detection</p>
-                    <p>📜 History stored in /MVR/history/</p>
+                    <strong>ℹ️ Firebase Direct Integration</strong>
+                    <p>✅ UI fetches from Firebase every 3 seconds</p>
+                    <p>🤖 Backend processes every 5 seconds</p>
+                    <p>💾 Data stored at /MVR/latest_detection</p>
+                    <p>📜 History at /MVR/history/</p>
                 </div>
             </div>
         </div>
@@ -368,9 +349,9 @@
 
     <script>
         let updateInterval;
-        let hasData = false;
+        let fetchCount = 0;
 
-        // Auto-refresh latest detection every 3 seconds
+        // Auto-refresh from Firebase every 3 seconds
         function startAutoRefresh() {
             updateInterval = setInterval(fetchLatestDetection, 3000);
             fetchLatestDetection(); // Initial fetch
@@ -378,19 +359,25 @@
 
         async function fetchLatestDetection() {
             try {
-                const response = await fetch('/get_firebase_latest');
+                fetchCount++;
+                console.log(`[${new Date().toLocaleTimeString()}] Fetching from Firebase (attempt #${fetchCount})`);
+                
+                const response = await fetch('/get_latest_detection');
                 const result = await response.json();
 
                 if (result.success && result.data) {
+                    console.log('✅ Data received from Firebase:', result.data);
                     displayDetection(result.data);
-                    hasData = true;
-                } else if (!hasData) {
-                    // Show waiting message if no data exists yet
+                    document.getElementById('statusText').textContent = '🔥 Live - Connected to Firebase';
+                } else {
+                    console.log('⏳ No data yet:', result.message);
                     showWaitingMessage();
+                    document.getElementById('statusText').textContent = '⏳ Waiting for first detection...';
                 }
-                // If data exists, keep showing last detection
             } catch (error) {
-                console.error('Error fetching detection:', error);
+                console.error('❌ Error fetching from Firebase:', error);
+                showErrorMessage();
+                document.getElementById('statusText').textContent = '❌ Connection Error';
             }
         }
 
@@ -400,17 +387,44 @@
                 <div class="placeholder">
                     <div class="placeholder-icon">🌿</div>
                     <p>Waiting for Firebase image...</p>
-                    <p style="font-size: 0.9em; margin-top: 10px; color: #999;">Checking every 5 seconds</p>
+                    <p style="font-size: 0.9em; margin-top: 10px; color: #999;">Auto-processing every 5 seconds</p>
                 </div>
             `;
             document.getElementById('detectionTimestamp').textContent = 'Last updated: Waiting for first image...';
         }
 
+        function showErrorMessage() {
+            const imageContainer = document.getElementById('detectionImageContainer');
+            imageContainer.innerHTML = `
+                <div class="placeholder">
+                    <div class="placeholder-icon">⚠️</div>
+                    <p>Connection error</p>
+                    <p style="font-size: 0.9em; margin-top: 10px; color: #999;">Retrying...</p>
+                </div>
+            `;
+        }
+
         function displayDetection(data) {
+            console.log('📊 Displaying detection data:', {
+                hasImage: !!data.annotated_image,
+                imageLength: data.annotated_image ? data.annotated_image.length : 0,
+                totalMangroves: data.detection_summary?.total_mangroves,
+                timestamp: data.timestamp
+            });
+
             // Update image
             const imageContainer = document.getElementById('detectionImageContainer');
             if (data.annotated_image) {
                 imageContainer.innerHTML = `<img src="data:image/jpeg;base64,${data.annotated_image}" alt="Detection Result">`;
+                console.log('✅ Image displayed');
+            } else {
+                console.warn('⚠️ No annotated_image in data');
+                imageContainer.innerHTML = `
+                    <div class="placeholder">
+                        <div class="placeholder-icon">🖼️</div>
+                        <p>Image processing...</p>
+                    </div>
+                `;
             }
 
             // Update stats
@@ -445,12 +459,14 @@
             formData.append('pixel_to_meter', 0.5);
 
             try {
+                console.log('📤 Uploading manual file...');
                 const response = await fetch('/predict_manual', {
                     method: 'POST',
                     body: formData
                 });
 
                 const result = await response.json();
+                console.log('Manual upload result:', result);
 
                 if (result.success) {
                     const manualResult = document.getElementById('manualResult');
@@ -461,14 +477,20 @@
                     document.getElementById('manualCO2').textContent = result.carbon_sequestration.co2_tons;
                     
                     manualResult.style.display = 'block';
+                } else {
+                    alert('Error: ' + (result.error || 'Unknown error'));
                 }
             } catch (error) {
+                console.error('Manual upload error:', error);
                 alert('Error processing image: ' + error.message);
             }
         });
 
         // Start auto-refresh on page load
-        window.addEventListener('load', startAutoRefresh);
+        window.addEventListener('load', () => {
+            console.log('🚀 Page loaded - starting auto-refresh');
+            startAutoRefresh();
+        });
     </script>
 </body>
 </html>
