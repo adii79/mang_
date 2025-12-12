@@ -24,8 +24,6 @@
 # MAX_FILE_SIZE = 16 * 1024 * 1024  # 16MB
 
 # # Firebase Configuration
-# # FIREBASE_HOST = "https://newcam-19ef1-default-rtdb.firebaseio.com/"
-# # FIREBASE_AUTH = "0njZXc3wlhf62RfoqLOlZhKNdDQCBp0NFQxRrKIB"
 # FIREBASE_HOST = "https://newcam-19ef1-default-rtdb.firebaseio.com/"
 # FIREBASE_AUTH = "0njZXc3wlhf62RfoqLOlZhKNdDQCBp0NFQxRrKIB"
 # FIREBASE_INPUT_PATH = "/captured_images"
@@ -48,10 +46,9 @@
 #     print(f"❌ Error loading model: {e}")
 #     model = None
 
-# # Global variables
+# # Global variables (only for tracking, not for serving data)
 # last_processed_timestamp = None
 # firebase_monitor_running = False
-# latest_detection_result = None
 
 # def fetch_latest_image_from_firebase():
 #     """Fetch the latest image from Firebase."""
@@ -73,7 +70,7 @@
 #         return None, None, None
 
 # def send_results_to_firebase(results_data):
-#     """Send complete detection results to Firebase."""
+#     """Send complete detection results to Firebase with properly encoded image."""
 #     try:
 #         timestamp_key = f"detection_{int(time.time() * 1000)}"
         
@@ -106,6 +103,8 @@
         
 #         if dashboard_response.status_code == 200:
 #             print(f"✅ Real-time dashboard updated at /MVR/latest_detection")
+#             print(f"   Total mangroves: {results_data['total_detections']}")
+#             print(f"   Image size: {len(results_data.get('annotated_image', ''))} bytes")
             
 #             # Also save to history
 #             history_data = {timestamp_key: firebase_data}
@@ -136,11 +135,12 @@
 #     }
 
 # def process_image_detection(image_data=None, file_path=None, confidence=0.3, pixel_to_meter=0.5, source="firebase_auto"):
-#     """Core detection function."""
+#     """Core detection function - ALWAYS returns annotated image in base64."""
 #     if model is None:
 #         return {'error': 'Model not loaded', 'success': False}
     
 #     try:
+#         # Handle image input
 #         if image_data:
 #             image_bytes = base64.b64decode(image_data)
 #             image = Image.open(io.BytesIO(image_bytes))
@@ -155,16 +155,45 @@
 #         else:
 #             return {'error': 'No image provided', 'success': False}
         
+#         # Run YOLO detection
 #         results = model.predict(filepath, conf=confidence)
         
 #         detections_list = []
 #         total_area_pixels = 0
         
+#         # Load image for annotation
+#         image = cv2.imread(filepath)
+#         image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+        
+#         # Process detections
 #         for r in results:
 #             boxes = r.boxes
 #             names = r.names
             
 #             if boxes is not None and len(boxes) > 0:
+#                 # Create annotations
+#                 detections = sv.Detections.from_ultralytics(r)
+                
+#                 box_annotator = sv.BoxAnnotator(
+#                     thickness=3,
+#                     color=sv.Color(r=0, g=255, b=0)
+#                 )
+#                 label_annotator = sv.LabelAnnotator(
+#                     text_color=sv.Color(r=255, g=255, b=255),
+#                     text_scale=0.5,
+#                     text_thickness=2
+#                 )
+                
+#                 labels = [
+#                     f"{names[int(class_id)]} {conf:.0%}"
+#                     for class_id, conf in zip(detections.class_id, detections.confidence)
+#                 ]
+                
+#                 # Annotate image
+#                 annotated_image = box_annotator.annotate(image_rgb.copy(), detections)
+#                 annotated_image = label_annotator.annotate(annotated_image, detections, labels)
+                
+#                 # Process detection data
 #                 for i, box in enumerate(boxes):
 #                     class_id = int(box.cls[0])
 #                     class_name = names[class_id]
@@ -190,40 +219,20 @@
 #                         'height': int(height),
 #                         'area_pixels': int(area_pixels)
 #                     })
-            
-#             img_base64 = None
-#             result_filename = None
-            
-#             if boxes is not None and len(boxes) > 0:
-#                 detections = sv.Detections.from_ultralytics(r)
-#                 image = cv2.imread(filepath)
-#                 image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-                
-#                 box_annotator = sv.BoxAnnotator(
-#                     thickness=3,
-#                     color=sv.Color(r=0, g=255, b=0)
-#                 )
-#                 label_annotator = sv.LabelAnnotator(
-#                     text_color=sv.Color(r=255, g=255, b=255),
-#                     text_scale=0.5,
-#                     text_thickness=2
-#                 )
-                
-#                 labels = [
-#                     f"{names[int(class_id)]} {conf:.0%}"
-#                     for class_id, conf in zip(detections.class_id, detections.confidence)
-#                 ]
-                
-#                 annotated_image = box_annotator.annotate(image, detections)
-#                 annotated_image = label_annotator.annotate(annotated_image, detections, labels)
-                
-#                 result_filename = f"result_{filename}"
-#                 result_path = os.path.join(app.config['RESULTS_FOLDER'], result_filename)
-#                 cv2.imwrite(result_path, cv2.cvtColor(annotated_image, cv2.COLOR_RGB2BGR))
-                
-#                 _, buffer = cv2.imencode('.jpg', cv2.cvtColor(annotated_image, cv2.COLOR_RGB2BGR))
-#                 img_base64 = base64.b64encode(buffer).decode('utf-8')
+#             else:
+#                 # No detections - use original image
+#                 annotated_image = image_rgb
         
+#         # Save annotated image
+#         result_filename = f"result_{filename}"
+#         result_path = os.path.join(app.config['RESULTS_FOLDER'], result_filename)
+#         cv2.imwrite(result_path, cv2.cvtColor(annotated_image, cv2.COLOR_RGB2BGR))
+        
+#         # Encode image to base64
+#         _, buffer = cv2.imencode('.jpg', cv2.cvtColor(annotated_image, cv2.COLOR_RGB2BGR))
+#         img_base64 = base64.b64encode(buffer).decode('utf-8')
+        
+#         # Calculate carbon metrics
 #         total_area_m2 = total_area_pixels * (pixel_to_meter ** 2)
 #         carbon_data = calculate_carbon(total_area_m2)
         
@@ -242,15 +251,19 @@
 #             'processing_timestamp': datetime.now().isoformat()
 #         }
         
+#         print(f"✅ Detection completed: {len(detections_list)} mangroves, image encoded: {len(img_base64)} bytes")
+        
 #         return response
     
 #     except Exception as e:
-#         print(f"Detection error: {e}")
+#         print(f"❌ Detection error: {e}")
+#         import traceback
+#         traceback.print_exc()
 #         return {'error': str(e), 'success': False}
 
 # def monitor_firebase():
 #     """Background thread to monitor Firebase for new images."""
-#     global last_processed_timestamp, firebase_monitor_running, latest_detection_result
+#     global last_processed_timestamp, firebase_monitor_running
     
 #     print("🔥 Firebase monitoring started...")
 #     firebase_monitor_running = True
@@ -280,18 +293,17 @@
                     
 #                     if result and result.get('success'):
 #                         print(f"✅ Detection completed: {result['total_detections']} mangroves found")
-#                         latest_detection_result = result
+#                         # Send to Firebase immediately
 #                         send_results_to_firebase(result)
 #                     else:
 #                         print(f"❌ Detection failed: {result.get('error', 'Unknown error')}")
-#             elif image_data is None and latest_detection_result is None:
-#                 # If no Firebase image and no detection yet, keep showing "waiting"
-#                 print("⏳ No images in Firebase yet...")
-                    
+                        
 #             time.sleep(5)  # Check every 5 seconds
             
 #         except Exception as e:
 #             print(f"❌ Error in Firebase monitor: {e}")
+#             import traceback
+#             traceback.print_exc()
 #             time.sleep(5)
 
 # @app.route('/')
@@ -300,36 +312,21 @@
 
 # @app.route('/get_latest_detection')
 # def get_latest_detection():
-#     """Get latest detection result from memory (real-time)."""
-#     global latest_detection_result
-    
-#     if latest_detection_result:
-#         return jsonify({
-#             'success': True,
-#             'data': latest_detection_result
-#         })
-#     else:
-#         return jsonify({
-#             'success': False,
-#             'message': 'No detection available yet'
-#         })
-
-# @app.route('/get_firebase_latest')
-# def get_firebase_latest():
-#     """Fetch latest detection from Firebase database."""
+#     """Fetch latest detection directly from Firebase (no memory cache)."""
 #     try:
 #         firebase_url = f"{FIREBASE_HOST}{FIREBASE_OUTPUT_PATH}/latest_detection.json?auth={FIREBASE_AUTH}"
 #         response = requests.get(firebase_url)
         
 #         if response.status_code == 200 and response.json():
+#             data = response.json()
 #             return jsonify({
 #                 'success': True,
-#                 'data': response.json()
+#                 'data': data
 #             })
 #         else:
 #             return jsonify({
 #                 'success': False,
-#                 'message': 'No data in Firebase'
+#                 'message': 'No detection available yet'
 #             })
             
 #     except Exception as e:
@@ -369,7 +366,6 @@
 #             source="manual_upload"
 #         )
         
-#         # Don't send manual uploads to Firebase auto path
 #         return jsonify(result)
     
 #     except Exception as e:
@@ -380,8 +376,7 @@
 #     """Check Firebase monitoring status."""
 #     return jsonify({
 #         'monitoring_active': firebase_monitor_running,
-#         'last_processed_timestamp': last_processed_timestamp,
-#         'has_detection': latest_detection_result is not None
+#         'last_processed_timestamp': last_processed_timestamp
 #     })
 
 # if __name__ == '__main__':
@@ -390,17 +385,19 @@
 #     monitor_thread.start()
     
 #     print("="*70)
-#     print("🌳 MANGROVE DETECTION SYSTEM - REAL-TIME MODE")
+#     print("🌳 MANGROVE DETECTION SYSTEM - FIREBASE DIRECT MODE")
 #     print("="*70)
 #     print("🔥 Firebase Auto-Monitor: ACTIVE")
-#     print("📊 Real-time Dashboard: /MVR/latest_detection")
+#     print("📊 Data Source: Firebase /MVR/latest_detection")
 #     print("📁 Detection History: /MVR/history/")
 #     print("🔄 Update Interval: 5 seconds")
+#     print("💾 No Local Memory - All data from Firebase")
 #     print("📤 Manual Upload: Separate from auto-detection")
 #     print("💡 Startup: Loads last Firebase image immediately")
 #     print("="*70)
     
 #     app.run(debug=True, host='0.0.0.0', port=5000, use_reloader=False)
+
 
 
 from flask import Flask, render_template, request, jsonify, send_file
@@ -426,9 +423,9 @@ RESULTS_FOLDER = 'results'
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg'}
 MAX_FILE_SIZE = 16 * 1024 * 1024  # 16MB
 
-# Firebase Configuration
-FIREBASE_HOST = "https://newcam-19ef1-default-rtdb.firebaseio.com/"
-FIREBASE_AUTH = "0njZXc3wlhf62RfoqLOlZhKNdDQCBp0NFQxRrKIB"
+# Firebase Configuration - Use environment variables for security
+FIREBASE_HOST = os.environ.get('FIREBASE_HOST', "https://newcam-19ef1-default-rtdb.firebaseio.com/")
+FIREBASE_AUTH = os.environ.get('FIREBASE_AUTH', "0njZXc3wlhf62RfoqLOlZhKNdDQCBp0NFQxRrKIB")
 FIREBASE_INPUT_PATH = "/captured_images"
 FIREBASE_OUTPUT_PATH = "/MVR"
 
@@ -457,7 +454,7 @@ def fetch_latest_image_from_firebase():
     """Fetch the latest image from Firebase."""
     try:
         firebase_url = f"{FIREBASE_HOST}{FIREBASE_INPUT_PATH}.json?auth={FIREBASE_AUTH}"
-        response = requests.get(firebase_url)
+        response = requests.get(firebase_url, timeout=10)
         
         if response.status_code == 200 and response.json():
             images = response.json()
@@ -502,7 +499,7 @@ def send_results_to_firebase(results_data):
         
         # Send to latest_detection (real-time dashboard)
         dashboard_url = f"{FIREBASE_HOST}{FIREBASE_OUTPUT_PATH}/latest_detection.json?auth={FIREBASE_AUTH}"
-        dashboard_response = requests.put(dashboard_url, json=firebase_data)
+        dashboard_response = requests.put(dashboard_url, json=firebase_data, timeout=10)
         
         if dashboard_response.status_code == 200:
             print(f"✅ Real-time dashboard updated at /MVR/latest_detection")
@@ -512,7 +509,7 @@ def send_results_to_firebase(results_data):
             # Also save to history
             history_data = {timestamp_key: firebase_data}
             history_url = f"{FIREBASE_HOST}{FIREBASE_OUTPUT_PATH}/history.json?auth={FIREBASE_AUTH}"
-            requests.patch(history_url, json=history_data)
+            requests.patch(history_url, json=history_data, timeout=10)
             print(f"✅ Saved to history at /MVR/history/{timestamp_key}")
             return True
         else:
@@ -713,12 +710,21 @@ def monitor_firebase():
 def index():
     return render_template('index.html')
 
+@app.route('/health')
+def health():
+    """Health check endpoint for monitoring services"""
+    return jsonify({
+        'status': 'healthy',
+        'model_loaded': model is not None,
+        'firebase_monitor': firebase_monitor_running
+    })
+
 @app.route('/get_latest_detection')
 def get_latest_detection():
     """Fetch latest detection directly from Firebase (no memory cache)."""
     try:
         firebase_url = f"{FIREBASE_HOST}{FIREBASE_OUTPUT_PATH}/latest_detection.json?auth={FIREBASE_AUTH}"
-        response = requests.get(firebase_url)
+        response = requests.get(firebase_url, timeout=10)
         
         if response.status_code == 200 and response.json():
             data = response.json()
@@ -799,4 +805,8 @@ if __name__ == '__main__':
     print("💡 Startup: Loads last Firebase image immediately")
     print("="*70)
     
-    app.run(debug=True, host='0.0.0.0', port=5000, use_reloader=False)
+    # Get port from environment variable (Render provides this)
+    port = int(os.environ.get('PORT', 5000))
+    
+    # Run the app
+    app.run(host='0.0.0.0', port=port)
